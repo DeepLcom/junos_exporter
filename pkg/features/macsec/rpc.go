@@ -21,11 +21,11 @@ type resultInt struct {
 			ReplayProtect               string `xml:"replay-protect"`
 			ReplayProtectWindow         string `xml:"replay-protect-window"`
 		} `xml:"macsec-interface-common-information"`
-		CreateTime struct {
+		CreateTime []struct {
 			Text    string `xml:",chardata"`
 			Seconds string `xml:"seconds,attr"`
 		} `xml:"create-time"`
-		OutboundSecureChannel *struct {
+		OutboundSecureChannel []struct {
 			Text                      string `xml:",chardata"`
 			Sci                       string `xml:"sci"`
 			OutgoingPacketNumber      string `xml:"outgoing-packet-number"`
@@ -58,6 +58,17 @@ type resultInt struct {
 		Banner string `xml:"banner"`
 	} `xml:"cli"`
 }
+
+// Main response structure for MACSEC connections
+// OutboundSecureChannelInfo contains outbound secure channel data
+/*
+type OutboundSecureChannelInfo struct {
+	Text                      string                `xml:",chardata"`
+	Sci                       string                `xml:"sci"`
+	OutgoingPacketNumber      string                `xml:"outgoing-packet-number"`
+	OutboundSecureAssociation SecureAssociationInfo `xml:"outbound-secure-association"`
+}
+*/
 
 // structure for the statistics reply
 type resultStats struct {
