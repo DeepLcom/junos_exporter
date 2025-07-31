@@ -90,8 +90,9 @@ var (
 	poeEnabled                  = flag.Bool("poe.enabled", true, "Scrape PoE metrics")
 	krtEnabled                  = flag.Bool("krt.enabled", false, "Scrape KRT queue metrics")
 	twampEnabled                = flag.Bool("twamp.enabled", false, "Scrape TWAMP metrics")
-	systemstatisticsIPv4Enabled        = flag.Bool("systemstatisticsipv4.enabled", true, "Scrape system statistics IPv4 metrics")
-	systemstatisticsIPv6Enabled        = flag.Bool("systemstatisticsipv6.enabled", true, "Scrape system statistics IPv6 metrics")
+	systemstatisticsIPv4Enabled = flag.Bool("systemstatisticsipv4.enabled", true, "Scrape system statistics IPv4 metrics")
+	systemstatisticsIPv6Enabled = flag.Bool("systemstatisticsipv6.enabled", true, "Scrape system statistics IPv6 metrics")
+	systemstatisticsUDPEnabled  = flag.Bool("systemstatisticsudp.enabled", true, "Scrape system statistics UDP metrics")
 	cfg                         *config.Config
 	devices                     []*connector.Device
 	connManager                 *connector.SSHConnectionManager
@@ -270,6 +271,7 @@ func loadConfigFromFlags() *config.Config {
 	f.TWAMP = *twampEnabled
 	f.SystemStatisticsIPv4 = *systemstatisticsIPv4Enabled
 	f.SystemStatisticsIPv6 = *systemstatisticsIPv6Enabled
+	f.SystemStatisticsUDP = *systemstatisticsUDPEnabled
 	return c
 }
 

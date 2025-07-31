@@ -105,6 +105,7 @@ type FeatureConfig struct {
 	TWAMP               bool `yaml:"twamp,omitempty"`
 	SystemStatisticsIPv4 bool `yaml:"system_statistics_ipv4,omitempty"`
 	SystemStatisticsIPv6 bool `yaml:"system_statistics_ipv6,omitempty"`
+	SystemStatisticsUDP  bool `yaml:"system_statistics_udp,omitempty"`
 }
 
 // New creates a new config
