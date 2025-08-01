@@ -102,23 +102,23 @@ func TestUnmarshalUDPStatistics_TableDriven(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			var actual StatsUDP
-			err := xml.Unmarshal([]byte(tc.xmlData), &actual)
+			err := xml.Unmarshal([]byte(tt.xmlData), &actual)
 			if err != nil {
 				t.Fatalf("Unmarshal failed: %v", err)
 			}
-			assert.Equal(t, tc.expected.Udp.DatagramsReceived, actual.Udp.DatagramsReceived)
-			assert.Equal(t, tc.expected.Udp.DatagramsWithIncompleteHeader, actual.Udp.DatagramsWithIncompleteHeader)
-			assert.Equal(t, tc.expected.Udp.DatagramsWithBadDatalengthField, actual.Udp.DatagramsWithBadDatalengthField)
-			assert.Equal(t, tc.expected.Udp.DatagramsWithBadChecksum, actual.Udp.DatagramsWithBadChecksum)
-			assert.Equal(t, tc.expected.Udp.DatagramsDroppedDueToNoSocket, actual.Udp.DatagramsDroppedDueToNoSocket)
-			assert.Equal(t, tc.expected.Udp.BroadcastOrMulticastDatagramsDroppedDueToNoSocket, actual.Udp.BroadcastOrMulticastDatagramsDroppedDueToNoSocket)
-			assert.Equal(t, tc.expected.Udp.DatagramsDroppedDueToFullSocketBuffers, actual.Udp.DatagramsDroppedDueToFullSocketBuffers)
-			assert.Equal(t, tc.expected.Udp.DatagramsNotForHashedPcb, actual.Udp.DatagramsNotForHashedPcb)
-			assert.Equal(t, tc.expected.Udp.DatagramsDelivered, actual.Udp.DatagramsDelivered)
-			assert.Equal(t, tc.expected.Udp.DatagramsOutput, actual.Udp.DatagramsOutput)
+			assert.Equal(t, tt.expected.Udp.DatagramsReceived, actual.Udp.DatagramsReceived)
+			assert.Equal(t, tt.expected.Udp.DatagramsWithIncompleteHeader, actual.Udp.DatagramsWithIncompleteHeader)
+			assert.Equal(t, tt.expected.Udp.DatagramsWithBadDatalengthField, actual.Udp.DatagramsWithBadDatalengthField)
+			assert.Equal(t, tt.expected.Udp.DatagramsWithBadChecksum, actual.Udp.DatagramsWithBadChecksum)
+			assert.Equal(t, tt.expected.Udp.DatagramsDroppedDueToNoSocket, actual.Udp.DatagramsDroppedDueToNoSocket)
+			assert.Equal(t, tt.expected.Udp.BroadcastOrMulticastDatagramsDroppedDueToNoSocket, actual.Udp.BroadcastOrMulticastDatagramsDroppedDueToNoSocket)
+			assert.Equal(t, tt.expected.Udp.DatagramsDroppedDueToFullSocketBuffers, actual.Udp.DatagramsDroppedDueToFullSocketBuffers)
+			assert.Equal(t, tt.expected.Udp.DatagramsNotForHashedPcb, actual.Udp.DatagramsNotForHashedPcb)
+			assert.Equal(t, tt.expected.Udp.DatagramsDelivered, actual.Udp.DatagramsDelivered)
+			assert.Equal(t, tt.expected.Udp.DatagramsOutput, actual.Udp.DatagramsOutput)
 		})
 	}
 }
