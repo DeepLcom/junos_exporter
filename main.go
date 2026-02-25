@@ -25,7 +25,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const version string = "0.14.0"
+const version string = "0.15.1"
 
 var (
 	showVersion                 = flag.Bool("version", false, "Print version information.")
@@ -41,8 +41,10 @@ var (
 	sshKeepAliveTimeout         = flag.Duration("ssh.keep-alive-timeout", 15*time.Second, "Duration to wait for keep alive message response")
 	sshExpireTimeout            = flag.Duration("ssh.expire-timeout", 15*time.Minute, "Duration after an connection is terminated when it is not used")
 	debug                       = flag.Bool("debug", false, "Show verbose debug output in log")
-	alarmEnabled                = flag.Bool("alarm.enabled", true, "Scrape Alarm metrics")
+	alarmEnabled                = flag.Bool("alarm.enabled", false, "Scrape Alarm metrics")
+	ntpEnabled                  = flag.Bool("ntp.enabled", false, "Scrape NTP metrics")
 	bgpEnabled                  = flag.Bool("bgp.enabled", true, "Scrape BGP metrics")
+	dot1xEnabled                = flag.Bool("dot1x.enabled", false, "Scrape dot1x metrics")
 	ospfEnabled                 = flag.Bool("ospf.enabled", true, "Scrape OSPFv3 metrics")
 	isisEnabled                 = flag.Bool("isis.enabled", false, "Scrape ISIS metrics")
 	l2circuitEnabled            = flag.Bool("l2circuit.enabled", false, "Scrape l2circuit metrics")
@@ -89,6 +91,8 @@ var (
 	arpEnabled                  = flag.Bool("arps.enabled", true, "Scrape ARP metrics")
 	poeEnabled                  = flag.Bool("poe.enabled", true, "Scrape PoE metrics")
 	krtEnabled                  = flag.Bool("krt.enabled", false, "Scrape KRT queue metrics")
+	twampEnabled                = flag.Bool("twamp.enabled", false, "Scrape TWAMP metrics")
+	systemstatisticsEnabled     = flag.Bool("systemstatistics.enabled", true, "Scrape system statistics metrics")
 	cfg                         *config.Config
 	devices                     []*connector.Device
 	connManager                 *connector.SSHConnectionManager
@@ -228,7 +232,9 @@ func loadConfigFromFlags() *config.Config {
 
 	f := &c.Features
 	f.Alarm = *alarmEnabled
+	f.NTP = *ntpEnabled
 	f.BGP = *bgpEnabled
+	f.DOT1X = *dot1xEnabled
 	f.Environment = *environmentEnabled
 	f.Firewall = *firewallEnabled
 	f.Interfaces = *interfacesEnabled
@@ -264,6 +270,8 @@ func loadConfigFromFlags() *config.Config {
 	f.ARP = *arpEnabled
 	f.Poe = *poeEnabled
 	f.KRT = *krtEnabled
+	f.TWAMP = *twampEnabled
+	f.SystemStatistics = *systemstatisticsEnabled
 	return c
 }
 
