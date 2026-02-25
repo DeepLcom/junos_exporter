@@ -62,9 +62,11 @@ type DeviceConfig struct {
 // FeatureConfig is the list of collectors enabled or disabled
 type FeatureConfig struct {
 	Alarm               bool `yaml:"alarm,omitempty"`
+	NTP                 bool `yaml:"ntp,omitempty"`
 	Environment         bool `yaml:"environment,omitempty"`
 	BFD                 bool `yaml:"bfd,omitempty"`
 	BGP                 bool `yaml:"bgp,omitempty"`
+	DOT1X               bool `yaml:"dot1x,omitempty"`
 	OSPF                bool `yaml:"ospf,omitempty"`
 	ISIS                bool `yaml:"isis,omitempty"`
 	NAT                 bool `yaml:"nat,omitempty"`
@@ -73,6 +75,7 @@ type FeatureConfig struct {
 	L2Vpn               bool `yaml:"l2vpn,omitempty"`
 	LACP                bool `yaml:"lacp,omitempty"`
 	LDP                 bool `yaml:"ldp,omitempty"`
+	LLDP                bool `yaml:"lldp,omitempty"`
 	Routes              bool `yaml:"routes,omitempty"`
 	RoutingEngine       bool `yaml:"routing_engine,omitempty"`
 	Firewall            bool `yaml:"firewall,omitempty"`
@@ -82,6 +85,7 @@ type FeatureConfig struct {
 	Storage             bool `yaml:"storage,omitempty"`
 	Accounting          bool `yaml:"accounting,omitempty"`
 	IPSec               bool `yaml:"ipsec,omitempty"`
+	Cluster             bool `yaml:"cluster,omitempty"`
 	Security            bool `yaml:"security,omitempty"`
 	SecurityIKE         bool `yaml:"security_ike,omitempty"`
 	SecurityPolicies    bool `yaml:"security_policies,omitempty"`
@@ -104,7 +108,6 @@ type FeatureConfig struct {
 	KRT                 bool `yaml:"krt,omitempty"`
 	TWAMP               bool `yaml:"twamp,omitempty"`
 	SystemStatistics    bool `yaml:"system_statistics,omitempty"`
-
 }
 
 // New creates a new config
@@ -153,6 +156,7 @@ func setDefaultValues(c *Config) {
 	c.LSEnabled = false
 	f := &c.Features
 	f.Alarm = true
+	f.NTP = false
 	f.BGP = true
 	f.Environment = true
 	f.Interfaces = true
@@ -162,6 +166,7 @@ func setDefaultValues(c *Config) {
 	f.OSPF = true
 	f.ISIS = true
 	f.LDP = true
+	f.LLDP = false
 	f.Routes = true
 	f.Firewall = true
 	f.RoutingEngine = true

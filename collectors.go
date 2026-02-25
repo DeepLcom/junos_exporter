@@ -16,6 +16,8 @@ import (
 	"github.com/czerwonk/junos_exporter/pkg/features/arp"
 	"github.com/czerwonk/junos_exporter/pkg/features/bfd"
 	"github.com/czerwonk/junos_exporter/pkg/features/bgp"
+	"github.com/czerwonk/junos_exporter/pkg/features/cluster"
+	"github.com/czerwonk/junos_exporter/pkg/features/dot1x"
 	"github.com/czerwonk/junos_exporter/pkg/features/environment"
 	"github.com/czerwonk/junos_exporter/pkg/features/firewall"
 	"github.com/czerwonk/junos_exporter/pkg/features/fpc"
@@ -29,11 +31,13 @@ import (
 	"github.com/czerwonk/junos_exporter/pkg/features/l2vpn"
 	"github.com/czerwonk/junos_exporter/pkg/features/lacp"
 	"github.com/czerwonk/junos_exporter/pkg/features/ldp"
+	"github.com/czerwonk/junos_exporter/pkg/features/lldp"
 	"github.com/czerwonk/junos_exporter/pkg/features/mac"
 	"github.com/czerwonk/junos_exporter/pkg/features/macsec"
 	"github.com/czerwonk/junos_exporter/pkg/features/mplslsp"
 	"github.com/czerwonk/junos_exporter/pkg/features/nat"
 	"github.com/czerwonk/junos_exporter/pkg/features/nat2"
+	"github.com/czerwonk/junos_exporter/pkg/features/ntp"
 	"github.com/czerwonk/junos_exporter/pkg/features/ospf"
 	"github.com/czerwonk/junos_exporter/pkg/features/power"
 	"github.com/czerwonk/junos_exporter/pkg/features/route"
@@ -84,10 +88,14 @@ func (c *collectors) initCollectorsForDevices(device *connector.Device, descRe *
 	c.addCollectorIfEnabledForDevice(device, "alarm", f.Alarm, func() collector.RPCCollector {
 		return alarm.NewCollector(*alarmFilter)
 	})
+	c.addCollectorIfEnabledForDevice(device, "ntp", f.NTP, func() collector.RPCCollector {
+		return ntp.NewCollector()
+	})
 	c.addCollectorIfEnabledForDevice(device, "bfd", f.BFD, bfd.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "bgp", f.BGP, func() collector.RPCCollector {
 		return bgp.NewCollector(c.logicalSystem, descRe)
 	})
+	c.addCollectorIfEnabledForDevice(device, "dot1x", f.DOT1X, dot1x.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "env", f.Environment, environment.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "firewall", f.Firewall, firewall.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "fpc", f.FPC, fpc.NewCollector)
@@ -106,6 +114,7 @@ func (c *collectors) initCollectorsForDevices(device *connector.Device, descRe *
 	c.addCollectorIfEnabledForDevice(device, "l2vpn", f.L2Vpn, l2vpn.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "lacp", f.LACP, lacp.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "ldp", f.LDP, ldp.NewCollector)
+	c.addCollectorIfEnabledForDevice(device, "lldp", f.LLDP, lldp.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "nat", f.NAT, nat.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "nat2", f.NAT2, nat2.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "ospf", f.OSPF, func() collector.RPCCollector {
@@ -114,6 +123,7 @@ func (c *collectors) initCollectorsForDevices(device *connector.Device, descRe *
 	c.addCollectorIfEnabledForDevice(device, "routes", f.Routes, route.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "rpki", f.RPKI, rpki.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "rpm", f.RPM, rpm.NewCollector)
+	c.addCollectorIfEnabledForDevice(device, "cluster", f.Cluster, cluster.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "security", f.Security, security.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "security_ike", f.SecurityIKE, securityike.NewCollector)
 	c.addCollectorIfEnabledForDevice(device, "security_policies", f.SecurityPolicies, securitypolicies.NewCollector)
