@@ -79,7 +79,6 @@ func (c *environmentCollector) Collect(client collector.Client, ch chan<- promet
 		return errors.Wrap(err, "failed to run command 'show version'")
 	}
     //QFX5220 have a  slightly different xml for environment information, so we need to check the product model before collecting environment metrics
-    fmt.Printf("model is %s", v.SoftwareInformation.ProductModel)
     if strings.Contains(strings.ToLower(v.SoftwareInformation.ProductModel), "qfx5220"){
         c.environmentItemsForSomeSwitchModels(client, ch, labelValues)
         c.environmentPEMItemsForSomeSwitchModels(client, ch, labelValues)
@@ -291,9 +290,7 @@ func (c *environmentCollector) environmentPEMItemsForSomeSwitchModels(client col
 		}
 
 		dcOutputVal := 0.0
-		fmt.Printf("value of dc output is %s", item.PsmInformation.PsmStatus.DcOutput)
 		if strings.EqualFold(strings.ToLower(item.PsmInformation.PsmStatus.DcOutput), "ok") {
-		    fmt.Printf("inside dc output metric")
 			dcOutputVal = 1.0
 		}
 		ch <- prometheus.MustNewConstMetric(dcOutputDesc, prometheus.GaugeValue, dcOutputVal, l...)
