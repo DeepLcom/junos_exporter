@@ -78,13 +78,25 @@ func (c *environmentCollector) Collect(client collector.Client, ch chan<- promet
 		//return errors.Wrap(err, "failed to run command 'show version'")
 		return errors.Wrap(err, "failed to run command 'show version'")
 	}
-    //QFX5220 have a  slightly different xml for environment information, so we need to check the product model before collecting environment metrics
-    if strings.Contains(strings.ToLower(v.SoftwareInformation.ProductModel), "qfx5220"){
-        c.environmentItemsForSomeSwitchModels(client, ch, labelValues)
-        c.environmentPEMItemsForSomeSwitchModels(client, ch, labelValues)
+	// QFX5220 and EX4300 have a slightly different xml for environment information, so we need to check the product model before collecting environment metrics
+	model := strings.ToLower(v.SoftwareInformation.ProductModel)
+	if model == "" {
+		// EX4300 returns chassis-inventory instead of software-information for 'show version'
+		var hw showChassisHardwareResult
+		if err := client.RunCommandAndParse("show chassis hardware", &hw); err == nil {
+			model = strings.ToLower(hw.ChassisInventory.Chassis.Description)
+		}
+	}
+
+	if strings.Contains(model, "qfx5220") {
+		c.environmentItemsQFX5220(client, ch, labelValues)
+		c.environmentPEMItemsQFX5220(client, ch, labelValues)
+	} else if strings.Contains(model, "ex4300") {
+		c.environmentItemsEX4300(client, ch, labelValues)
+		c.environmentPEMItemsEX4300(client, ch, labelValues)
 	} else {
-	    c.environmentItems(client, ch, labelValues)
-        c.environmentPEMItems(client, ch, labelValues)
+		c.environmentItems(client, ch, labelValues)
+		c.environmentPEMItems(client, ch, labelValues)
 	}
 	return nil
 }
@@ -210,8 +222,8 @@ func (c *environmentCollector) environmentPEMItems(client collector.Client, ch c
 	return nil
 }
 
-func (c *environmentCollector) environmentItemsForSomeSwitchModels(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := environmentResultSomeSwitches{}
+func (c *environmentCollector) environmentItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
+	x := environmentResultQFX5220{}
 
 	statusValues := map[string]int{
 		"OK":      1,
@@ -252,8 +264,8 @@ func (c *environmentCollector) environmentItemsForSomeSwitchModels(client collec
 	return nil
 }
 
-func (c *environmentCollector) environmentPEMItemsForSomeSwitchModels(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := multiEngineResultSomeSwitches{}
+func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
+	x := environmentPEMResultQFX5220{}
 
 	stateValues := map[string]int{
 		"Online":  1,
@@ -294,6 +306,81 @@ func (c *environmentCollector) environmentPEMItemsForSomeSwitchModels(client col
 			dcOutputVal = 1.0
 		}
 		ch <- prometheus.MustNewConstMetric(dcOutputDesc, prometheus.GaugeValue, dcOutputVal, l...)
+	}
+
+	return nil
+}
+
+func (c *environmentCollector) environmentItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
+	x := environmentResultEX4300{}
+
+	statusValues := map[string]int{
+		"OK":      1,
+		"Testing": 2,
+		"Failed":  3,
+		"Absent":  4,
+		"Present": 5,
+	}
+
+	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
+		return xml.Unmarshal(b, &x)
+	})
+	if err != nil {
+		return nil
+	}
+
+	reName := "N/A"
+	for _, item := range x.EnvironmentInformation.EnvironmentItem {
+		l := append(labelValues, reName)
+
+		if strings.Contains(item.Name, "Power Supply") || strings.Contains(item.Name, "PEM") || strings.Contains(item.Name, "PSM") {
+			ch <- prometheus.MustNewConstMetric(powerSupplyDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
+		} else if strings.Contains(item.Name, "Fan") {
+			if strings.Contains(item.Name, "Airflow") {
+				ch <- prometheus.MustNewConstMetric(fanAirflowDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
+			} else {
+				ch <- prometheus.MustNewConstMetric(fanStatusDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
+			}
+		} else if item.Temperature.Celsius != "" {
+			tempVal, err := strconv.ParseFloat(item.Temperature.Celsius, 64)
+			if err != nil {
+				return fmt.Errorf("could not parse temperature value to float: %s", item.Temperature.Celsius)
+			}
+			ch <- prometheus.MustNewConstMetric(temperaturesDesc, prometheus.GaugeValue, tempVal, append(l, item.Name)...)
+		}
+	}
+
+	return nil
+}
+
+func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
+	x := environmentPEMResultEX4300{}
+
+	stateValues := map[string]int{
+		"Online":  1,
+		"Present": 2,
+		"Empty":   3,
+		"Offline": 4,
+	}
+
+	err := client.RunCommandAndParseWithParser("show chassis environment power-supply-unit", func(b []byte) error {
+		return xml.Unmarshal(b, &x)
+	})
+	if err != nil {
+		return err
+	}
+
+	reName := "N/A"
+	for _, item := range x.EnvironmentComponentInformation.EnvironmentComponentItem {
+		pem := item.PemInformation
+		itemName := fmt.Sprintf("FPC %s PSU %s", pem.FpcSlot, pem.PemSlot)
+		l := append(labelValues, reName, itemName)
+
+		ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(stateValues[pem.PemState]), append(l, pem.PemState)...)
+		ch <- prometheus.MustNewConstMetric(temperaturesDesc, prometheus.GaugeValue, pem.PemTemperature, append(labelValues, reName, itemName)...)
+		ch <- prometheus.MustNewConstMetric(dcVoltageDesc, prometheus.GaugeValue, pem.OutputVolt, l...)
+		ch <- prometheus.MustNewConstMetric(dcCurrentDesc, prometheus.GaugeValue, pem.OutputCurrent, l...)
+		ch <- prometheus.MustNewConstMetric(dcPowerDesc, prometheus.GaugeValue, pem.OutputPower, l...)
 	}
 
 	return nil

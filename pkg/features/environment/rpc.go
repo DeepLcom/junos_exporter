@@ -84,7 +84,7 @@ type showVersionResult struct {
 	} `xml:"cli"`
 }
 
-type environmentResultSomeSwitches struct {
+type environmentResultQFX5220 struct {
 	XMLName xml.Name `xml:"rpc-reply"`
 	Text    string   `xml:",chardata"`
 	Junos   string   `xml:"junos,attr"`
@@ -109,7 +109,69 @@ type environmentResultSomeSwitches struct {
 	} `xml:"cli"`
 }
 
-type multiEngineResultSomeSwitches struct {
+type showChassisHardwareResult struct {
+	XMLName          xml.Name `xml:"rpc-reply"`
+	ChassisInventory struct {
+		Chassis struct {
+			Description string `xml:"description"`
+		} `xml:"chassis"`
+	} `xml:"chassis-inventory"`
+}
+
+type environmentResultEX4300 struct {
+	XMLName xml.Name `xml:"rpc-reply"`
+	Text    string   `xml:",chardata"`
+	Junos   string   `xml:"junos,attr"`
+	EnvironmentInformation struct {
+		Text  string `xml:",chardata"`
+		Xmlns string `xml:"xmlns,attr"`
+		EnvironmentItem []struct {
+			Text   string `xml:",chardata"`
+			Name   string `xml:"name"`
+			Status string `xml:"status"`
+			Class  string `xml:"class"`
+			Temperature struct {
+				Text    string `xml:",chardata"`
+				Celsius string `xml:"celsius,attr"`
+			} `xml:"temperature"`
+			Comment string `xml:"comment"`
+		} `xml:"environment-item"`
+	} `xml:"environment-information"`
+	Cli struct {
+		Text   string `xml:",chardata"`
+		Banner string `xml:"banner"`
+	} `xml:"cli"`
+}
+
+type environmentPEMResultEX4300 struct {
+	XMLName xml.Name `xml:"rpc-reply"`
+	Text    string   `xml:",chardata"`
+	Junos   string   `xml:"junos,attr"`
+	EnvironmentComponentInformation struct {
+		Text  string `xml:",chardata"`
+		Xmlns string `xml:"xmlns,attr"`
+		EnvironmentComponentItem []struct {
+			PemInformation struct {
+				FpcSlot       string  `xml:"fpc-slot"`
+				PemSlot       string  `xml:"pem-slot"`
+				PemState      string  `xml:"pem-state"`
+				PemTemperature float64 `xml:"pem-temperature"`
+				InputCurrent  float64 `xml:"input-current"`
+				InputVolt     float64 `xml:"input-volt"`
+				InputPower    float64 `xml:"input-power"`
+				OutputCurrent float64 `xml:"output-current"`
+				OutputVolt    float64 `xml:"output-volt"`
+				OutputPower   float64 `xml:"output-power"`
+			} `xml:"pem-information"`
+		} `xml:"environment-component-item"`
+	} `xml:"environment-component-information"`
+	Cli struct {
+		Text   string `xml:",chardata"`
+		Banner string `xml:"banner"`
+	} `xml:"cli"`
+}
+
+type environmentPEMResultQFX5220 struct {
 	XMLName                         xml.Name `xml:"rpc-reply"`
 	Text                            string   `xml:",chardata"`
 	Junos                           string   `xml:"junos,attr"`
