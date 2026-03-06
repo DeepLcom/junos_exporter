@@ -9,13 +9,23 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/czerwonk/junos_exporter/pkg/collector"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/czerwonk/junos_exporter/pkg/collector"
 )
 
 const prefix string = "junos_environment_"
 
 var (
+	statusValues = map[string]int{
+		"OK":      1,
+		"Testing": 2,
+		"Failed":  3,
+		"Absent":  4,
+		"Present": 5,
+	}
+
 	temperaturesDesc *prometheus.Desc
 	powerSupplyDesc  *prometheus.Desc
 	fanStatusDesc    *prometheus.Desc
@@ -26,6 +36,10 @@ var (
 	dcCurrentDesc    *prometheus.Desc
 	dcPowerDesc      *prometheus.Desc
 	dcLoadDesc       *prometheus.Desc
+	dcOutputDesc     *prometheus.Desc
+	inputVoltageDesc *prometheus.Desc
+	inputCurrentDesc *prometheus.Desc
+	inputPowerDesc   *prometheus.Desc
 )
 
 func init() {
@@ -40,6 +54,10 @@ func init() {
 	dcCurrentDesc = prometheus.NewDesc(prefix+"pem_current", "PEM current value", l, nil)
 	dcPowerDesc = prometheus.NewDesc(prefix+"pem_power_usage", "PEM power usage in W", l, nil)
 	dcLoadDesc = prometheus.NewDesc(prefix+"pem_power_load_percent", "PEM power usage percent of total", l, nil)
+	dcOutputDesc = prometheus.NewDesc(prefix+"pem_dc_output", "PSM DC output status (1 OK, 0 not OK)", l, nil)
+	inputVoltageDesc = prometheus.NewDesc(prefix+"pem_input_voltage", "PSU input voltage in V", l, nil)
+	inputCurrentDesc = prometheus.NewDesc(prefix+"pem_input_current", "PSU input current in A", l, nil)
+	inputPowerDesc = prometheus.NewDesc(prefix+"pem_input_power", "PSU input power in W", l, nil)
 
 	l = []string{"target", "re_name", "item", "fan_name"}
 	fanDesc = prometheus.NewDesc(prefix+"pem_fanspeed", "Fan speed in RPM", l, nil)
@@ -63,26 +81,56 @@ func (*environmentCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- temperaturesDesc
 	ch <- fanDesc
 	ch <- dcPowerDesc
+	ch <- dcOutputDesc
+	ch <- inputVoltageDesc
+	ch <- inputCurrentDesc
+	ch <- inputPowerDesc
+}
+
+// deviceModel returns the lowercase product model string for the device.
+// Most devices expose it via 'show version', but some (e.g. EX4300) return
+// chassis-inventory instead, so we fall back to 'show chassis hardware'.
+func (c *environmentCollector) deviceModel(client collector.Client) (string, error) {
+	var v showVersionResult
+	if err := client.RunCommandAndParse("show version", &v); err != nil {
+		return "", errors.Wrap(err, "failed to run command 'show version'")
+	}
+
+	if model := strings.ToLower(v.SoftwareInformation.ProductModel); model != "" {
+		return model, nil
+	}
+
+	// Fallback: EX4300 returns chassis-inventory instead of software-information
+	var hw showChassisHardwareResult
+	if err := client.RunCommandAndParse("show chassis hardware", &hw); err == nil {
+		return strings.ToLower(hw.ChassisInventory.Chassis.Description), nil
+	}
+
+	return "", nil
 }
 
 // Collect collects metrics from JunOS
 func (c *environmentCollector) Collect(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	c.environmentItems(client, ch, labelValues)
-	c.environmentPEMItems(client, ch, labelValues)
+	model, err := c.deviceModel(client)
+	if err != nil {
+		return err
+	}
 
+	c.environmentItems(client, ch, labelValues)
+
+	if strings.Contains(model, "qfx5220") {
+		c.environmentPEMItemsQFX5220(client, ch, labelValues)
+	} else if strings.Contains(model, "ex4300") {
+		c.environmentPEMItemsEX4300(client, ch, labelValues)
+	} else {
+		c.environmentPEMItems(client, ch, labelValues)
+	}
 	return nil
 }
 
 func (c *environmentCollector) environmentItems(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	x := multiEngineResult{}
 
-	statusValues := map[string]int{
-		"OK":      1,
-		"Testing": 2,
-		"Failed":  3,
-		"Absent":  4,
-		"Present": 5,
-	}
 
 	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
 		return parseXML(b, &x)
@@ -114,7 +162,7 @@ func (c *environmentCollector) environmentItems(client collector.Client, ch chan
 		l := labelValues
 		for _, item := range re.EnvironmentInformation.Items {
 			l = append(labelValues, re.Name)
-			if strings.Contains(item.Name, "Power Supply") || strings.Contains(item.Name, "PEM") || strings.Contains(item.Name, "PSM") {
+			if containsAny(item.Name, []string{"Power Supply", "PEM", "PSM"}) {
 				l = append(l, item.Name, item.Status)
 				ch <- prometheus.MustNewConstMetric(powerSupplyDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), l...)
 			} else if strings.Contains(item.Name, "Fan") {
@@ -190,6 +238,102 @@ func (c *environmentCollector) environmentPEMItems(client collector.Client, ch c
 	}
 
 	return nil
+}
+
+
+func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
+	x := environmentPEMResultModelQFX5220{}
+
+	stateValues := map[string]int{
+		"Online":  1,
+		"Present": 2,
+		"Empty":   3,
+		"Offline": 4,
+	}
+
+	err := client.RunCommandAndParseWithParser("show chassis environment pem", func(b []byte) error {
+		return xml.Unmarshal(b, &x)
+	})
+	if err != nil {
+		err := client.RunCommandAndParseWithParser("show chassis environment psm", func(b []byte) error {
+			return xml.Unmarshal(b, &x)
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	reName := "N/A"
+	for _, item := range x.EnvironmentComponentInformation.EnvironmentComponentItem {
+		l := append(labelValues, reName, item.Name)
+
+		ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(stateValues[item.State]), append(l, item.State)...)
+
+		fan1Speed := item.PsmInformation.FanSpeedReadingPsm.Fan1Speed
+		if fan1Speed != "" {
+			rpms, err := strconv.ParseFloat(strings.TrimSuffix(fan1Speed, " RPM"), 64)
+			if err != nil {
+				return fmt.Errorf("could not parse fan speed value to float: %s", fan1Speed)
+			}
+			ch <- prometheus.MustNewConstMetric(fanDesc, prometheus.GaugeValue, rpms, append(l, item.PsmInformation.FanSpeedReadingPsm.Fan1Name)...)
+		}
+
+		//it could be that the DCOutputValue has the same states as stateValues from above
+		//but I couldn't verify it for sure
+		dcOutputVal := 0.0
+		if strings.EqualFold(strings.ToLower(item.PsmInformation.PsmStatus.DcOutput), "ok") {
+			dcOutputVal = 1.0
+		}
+		ch <- prometheus.MustNewConstMetric(dcOutputDesc, prometheus.GaugeValue, dcOutputVal, l...)
+	}
+
+	return nil
+}
+
+
+func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
+	x := environmentPEMResultModelEX4300{}
+
+	stateValues := map[string]int{
+		"Online":  1,
+		"Present": 2,
+		"Empty":   3,
+		"Offline": 4,
+	}
+
+	err := client.RunCommandAndParseWithParser("show chassis environment power-supply-unit", func(b []byte) error {
+		return xml.Unmarshal(b, &x)
+	})
+	if err != nil {
+		return err
+	}
+
+	reName := "N/A"
+	for _, item := range x.EnvironmentComponentInformation.EnvironmentComponentItem {
+		pem := item.PemInformation
+		itemName := fmt.Sprintf("FPC %s PSU %s", pem.FpcSlot, pem.PemSlot)
+		l := append(labelValues, reName, itemName)
+
+		ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(stateValues[pem.PemState]), append(l, pem.PemState)...)
+		ch <- prometheus.MustNewConstMetric(temperaturesDesc, prometheus.GaugeValue, pem.PemTemperature, append(labelValues, reName, itemName)...)
+		ch <- prometheus.MustNewConstMetric(dcVoltageDesc, prometheus.GaugeValue, pem.OutputVolt, l...)
+		ch <- prometheus.MustNewConstMetric(dcCurrentDesc, prometheus.GaugeValue, pem.OutputCurrent, l...)
+		ch <- prometheus.MustNewConstMetric(dcPowerDesc, prometheus.GaugeValue, pem.OutputPower, l...)
+		ch <- prometheus.MustNewConstMetric(inputVoltageDesc, prometheus.GaugeValue, pem.InputVolt, l...)
+		ch <- prometheus.MustNewConstMetric(inputCurrentDesc, prometheus.GaugeValue, pem.InputCurrent, l...)
+		ch <- prometheus.MustNewConstMetric(inputPowerDesc, prometheus.GaugeValue, pem.InputPower, l...)
+	}
+
+	return nil
+}
+
+func containsAny(s string, items []string) bool {
+	for _, item := range items {
+		if strings.Contains(s, item) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseXML(b []byte, res *multiEngineResult) error {
