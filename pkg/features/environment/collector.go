@@ -116,14 +116,13 @@ func (c *environmentCollector) Collect(client collector.Client, ch chan<- promet
 		return err
 	}
 
+	c.environmentItems(client, ch, labelValues)
+
 	if strings.Contains(model, "qfx5220") {
-		c.environmentItemsQFX5220(client, ch, labelValues)
 		c.environmentPEMItemsQFX5220(client, ch, labelValues)
 	} else if strings.Contains(model, "ex4300") {
-		c.environmentItemsEX4300(client, ch, labelValues)
 		c.environmentPEMItemsEX4300(client, ch, labelValues)
 	} else {
-		c.environmentItems(client, ch, labelValues)
 		c.environmentPEMItems(client, ch, labelValues)
 	}
 	return nil
@@ -241,39 +240,6 @@ func (c *environmentCollector) environmentPEMItems(client collector.Client, ch c
 	return nil
 }
 
-func (c *environmentCollector) environmentItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := environmentResultModelQFX5220{}
-
-
-	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
-		return xml.Unmarshal(b, &x)
-	})
-	if err != nil {
-		return nil
-	}
-
-	reName := "N/A"
-	for _, item := range x.EnvironmentInformation.EnvironmentItem {
-		l := append(labelValues, reName)
-		if containsAny(item.Name, []string{"Power Supply", "PEM", "PSM"}) {
-			ch <- prometheus.MustNewConstMetric(powerSupplyDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
-		} else if strings.Contains(item.Name, "Fan") {
-			if strings.Contains(item.Name, "Airflow") {
-				ch <- prometheus.MustNewConstMetric(fanAirflowDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
-			} else {
-				ch <- prometheus.MustNewConstMetric(fanStatusDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
-			}
-		} else if item.Temperature.Celsius != "" {
-			tempVal, err := strconv.ParseFloat(item.Temperature.Celsius, 64)
-			if err != nil {
-				return fmt.Errorf("could not parse temperature value to float: %s", item.Temperature.Celsius)
-			}
-			ch <- prometheus.MustNewConstMetric(temperaturesDesc, prometheus.GaugeValue, tempVal, append(l, item.Name)...)
-		}
-	}
-
-	return nil
-}
 
 func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	x := environmentPEMResultModelQFX5220{}
@@ -324,40 +290,6 @@ func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Clien
 	return nil
 }
 
-func (c *environmentCollector) environmentItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := environmentResultModelEX4300{}
-
-
-	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
-		return xml.Unmarshal(b, &x)
-	})
-	if err != nil {
-		return nil
-	}
-
-	reName := "N/A"
-	for _, item := range x.EnvironmentInformation.EnvironmentItem {
-		l := append(labelValues, reName)
-
-		if containsAny(item.Name, []string{"Power Supply", "PEM", "PSM"}) {
-			ch <- prometheus.MustNewConstMetric(powerSupplyDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
-		} else if strings.Contains(item.Name, "Fan") {
-			if strings.Contains(item.Name, "Airflow") {
-				ch <- prometheus.MustNewConstMetric(fanAirflowDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
-			} else {
-				ch <- prometheus.MustNewConstMetric(fanStatusDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
-			}
-		} else if item.Temperature.Celsius != "" {
-			tempVal, err := strconv.ParseFloat(item.Temperature.Celsius, 64)
-			if err != nil {
-				return fmt.Errorf("could not parse temperature value to float: %s", item.Temperature.Celsius)
-			}
-			ch <- prometheus.MustNewConstMetric(temperaturesDesc, prometheus.GaugeValue, tempVal, append(l, item.Name)...)
-		}
-	}
-
-	return nil
-}
 
 func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	x := environmentPEMResultModelEX4300{}

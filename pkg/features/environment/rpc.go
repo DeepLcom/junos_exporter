@@ -84,30 +84,6 @@ type showVersionResult struct {
 	} `xml:"cli"`
 }
 
-type environmentResultModelQFX5220 struct {
-	XMLName xml.Name `xml:"rpc-reply"`
-	Text    string   `xml:",chardata"`
-	Junos   string   `xml:"junos,attr"`
-	EnvironmentInformation struct {
-		Text  string `xml:",chardata"`
-		Xmlns string `xml:"xmlns,attr"`
-		EnvironmentItem []struct {
-			Text   string `xml:",chardata"`
-			Name   string `xml:"name"`
-			Status string `xml:"status"`
-			Class  string `xml:"class"`
-			Temperature struct {
-				Text    string `xml:",chardata"`
-				Celsius string `xml:"celsius,attr"`
-			} `xml:"temperature"`
-			Comment string `xml:"comment"`
-		} `xml:"environment-item"`
-	} `xml:"environment-information"`
-	Cli struct {
-		Text   string `xml:",chardata"`
-		Banner string `xml:"banner"`
-	} `xml:"cli"`
-}
 
 type showChassisHardwareResult struct {
 	XMLName          xml.Name `xml:"rpc-reply"`
@@ -118,30 +94,6 @@ type showChassisHardwareResult struct {
 	} `xml:"chassis-inventory"`
 }
 
-type environmentResultModelEX4300 struct {
-	XMLName xml.Name `xml:"rpc-reply"`
-	Text    string   `xml:",chardata"`
-	Junos   string   `xml:"junos,attr"`
-	EnvironmentInformation struct {
-		Text  string `xml:",chardata"`
-		Xmlns string `xml:"xmlns,attr"`
-		EnvironmentItem []struct {
-			Text   string `xml:",chardata"`
-			Name   string `xml:"name"`
-			Status string `xml:"status"`
-			Class  string `xml:"class"`
-			Temperature struct {
-				Text    string `xml:",chardata"`
-				Celsius string `xml:"celsius,attr"`
-			} `xml:"temperature"`
-			Comment string `xml:"comment"`
-		} `xml:"environment-item"`
-	} `xml:"environment-information"`
-	Cli struct {
-		Text   string `xml:",chardata"`
-		Banner string `xml:"banner"`
-	} `xml:"cli"`
-}
 
 type environmentPEMResultModelEX4300 struct {
 	XMLName xml.Name `xml:"rpc-reply"`
