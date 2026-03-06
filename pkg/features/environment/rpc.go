@@ -84,7 +84,7 @@ type showVersionResult struct {
 	} `xml:"cli"`
 }
 
-type environmentResultQFX5220 struct {
+type environmentResultModelQFX5220 struct {
 	XMLName xml.Name `xml:"rpc-reply"`
 	Text    string   `xml:",chardata"`
 	Junos   string   `xml:"junos,attr"`
@@ -118,7 +118,7 @@ type showChassisHardwareResult struct {
 	} `xml:"chassis-inventory"`
 }
 
-type environmentResultEX4300 struct {
+type environmentResultModelEX4300 struct {
 	XMLName xml.Name `xml:"rpc-reply"`
 	Text    string   `xml:",chardata"`
 	Junos   string   `xml:"junos,attr"`
@@ -143,7 +143,7 @@ type environmentResultEX4300 struct {
 	} `xml:"cli"`
 }
 
-type environmentPEMResultEX4300 struct {
+type environmentPEMResultModelEX4300 struct {
 	XMLName xml.Name `xml:"rpc-reply"`
 	Text    string   `xml:",chardata"`
 	Junos   string   `xml:"junos,attr"`
@@ -171,7 +171,7 @@ type environmentPEMResultEX4300 struct {
 	} `xml:"cli"`
 }
 
-type environmentPEMResultQFX5220 struct {
+type environmentPEMResultModelQFX5220 struct {
 	XMLName                         xml.Name `xml:"rpc-reply"`
 	Text                            string   `xml:",chardata"`
 	Junos                           string   `xml:"junos,attr"`

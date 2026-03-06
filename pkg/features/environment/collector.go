@@ -18,6 +18,14 @@ import (
 const prefix string = "junos_environment_"
 
 var (
+	statusValues = map[string]int{
+		"OK":      1,
+		"Testing": 2,
+		"Failed":  3,
+		"Absent":  4,
+		"Present": 5,
+	}
+
 	temperaturesDesc *prometheus.Desc
 	powerSupplyDesc  *prometheus.Desc
 	fanStatusDesc    *prometheus.Desc
@@ -27,11 +35,11 @@ var (
 	dcVoltageDesc    *prometheus.Desc
 	dcCurrentDesc    *prometheus.Desc
 	dcPowerDesc      *prometheus.Desc
-	dcLoadDesc          *prometheus.Desc
-	dcOutputDesc        *prometheus.Desc
-	inputVoltageDesc    *prometheus.Desc
-	inputCurrentDesc    *prometheus.Desc
-	inputPowerDesc      *prometheus.Desc
+	dcLoadDesc       *prometheus.Desc
+	dcOutputDesc     *prometheus.Desc
+	inputVoltageDesc *prometheus.Desc
+	inputCurrentDesc *prometheus.Desc
+	inputPowerDesc   *prometheus.Desc
 )
 
 func init() {
@@ -79,21 +87,33 @@ func (*environmentCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- inputPowerDesc
 }
 
+// deviceModel returns the lowercase product model string for the device.
+// Most devices expose it via 'show version', but some (e.g. EX4300) return
+// chassis-inventory instead, so we fall back to 'show chassis hardware'.
+func (c *environmentCollector) deviceModel(client collector.Client) (string, error) {
+	var v showVersionResult
+	if err := client.RunCommandAndParse("show version", &v); err != nil {
+		return "", errors.Wrap(err, "failed to run command 'show version'")
+	}
+
+	if model := strings.ToLower(v.SoftwareInformation.ProductModel); model != "" {
+		return model, nil
+	}
+
+	// Fallback: EX4300 returns chassis-inventory instead of software-information
+	var hw showChassisHardwareResult
+	if err := client.RunCommandAndParse("show chassis hardware", &hw); err == nil {
+		return strings.ToLower(hw.ChassisInventory.Chassis.Description), nil
+	}
+
+	return "", nil
+}
+
 // Collect collects metrics from JunOS
 func (c *environmentCollector) Collect(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	var v showVersionResult
-	err := client.RunCommandAndParse("show version", &v)
+	model, err := c.deviceModel(client)
 	if err != nil {
-		return errors.Wrap(err, "failed to run command 'show version'")
-	}
-	// QFX5220 and EX4300 have a slightly different xml for environment information, so we need to check the product model before collecting environment metrics
-	model := strings.ToLower(v.SoftwareInformation.ProductModel)
-	if model == "" {
-		// EX4300 returns chassis-inventory instead of software-information for 'show version'
-		var hw showChassisHardwareResult
-		if err := client.RunCommandAndParse("show chassis hardware", &hw); err == nil {
-			model = strings.ToLower(hw.ChassisInventory.Chassis.Description)
-		}
+		return err
 	}
 
 	if strings.Contains(model, "qfx5220") {
@@ -112,13 +132,6 @@ func (c *environmentCollector) Collect(client collector.Client, ch chan<- promet
 func (c *environmentCollector) environmentItems(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	x := multiEngineResult{}
 
-	statusValues := map[string]int{
-		"OK":      1,
-		"Testing": 2,
-		"Failed":  3,
-		"Absent":  4,
-		"Present": 5,
-	}
 
 	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
 		return parseXML(b, &x)
@@ -150,7 +163,7 @@ func (c *environmentCollector) environmentItems(client collector.Client, ch chan
 		l := labelValues
 		for _, item := range re.EnvironmentInformation.Items {
 			l = append(labelValues, re.Name)
-			if strings.Contains(item.Name, "Power Supply") || strings.Contains(item.Name, "PEM") || strings.Contains(item.Name, "PSM") {
+			if containsAny(item.Name, []string{"Power Supply", "PEM", "PSM"}) {
 				l = append(l, item.Name, item.Status)
 				ch <- prometheus.MustNewConstMetric(powerSupplyDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), l...)
 			} else if strings.Contains(item.Name, "Fan") {
@@ -169,8 +182,6 @@ func (c *environmentCollector) environmentItems(client collector.Client, ch chan
 
 	return nil
 }
-
-
 
 func (c *environmentCollector) environmentPEMItems(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	var x = multiEngineResult{}
@@ -231,15 +242,8 @@ func (c *environmentCollector) environmentPEMItems(client collector.Client, ch c
 }
 
 func (c *environmentCollector) environmentItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := environmentResultQFX5220{}
+	x := environmentResultModelQFX5220{}
 
-	statusValues := map[string]int{
-		"OK":      1,
-		"Testing": 2,
-		"Failed":  3,
-		"Absent":  4,
-		"Present": 5,
-	}
 
 	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
 		return xml.Unmarshal(b, &x)
@@ -251,8 +255,7 @@ func (c *environmentCollector) environmentItemsQFX5220(client collector.Client, 
 	reName := "N/A"
 	for _, item := range x.EnvironmentInformation.EnvironmentItem {
 		l := append(labelValues, reName)
-
-		if strings.Contains(item.Name, "Power Supply") || strings.Contains(item.Name, "PEM") || strings.Contains(item.Name, "PSM") {
+		if containsAny(item.Name, []string{"Power Supply", "PEM", "PSM"}) {
 			ch <- prometheus.MustNewConstMetric(powerSupplyDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
 		} else if strings.Contains(item.Name, "Fan") {
 			if strings.Contains(item.Name, "Airflow") {
@@ -273,7 +276,7 @@ func (c *environmentCollector) environmentItemsQFX5220(client collector.Client, 
 }
 
 func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := environmentPEMResultQFX5220{}
+	x := environmentPEMResultModelQFX5220{}
 
 	stateValues := map[string]int{
 		"Online":  1,
@@ -309,8 +312,8 @@ func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Clien
 			ch <- prometheus.MustNewConstMetric(fanDesc, prometheus.GaugeValue, rpms, append(l, item.PsmInformation.FanSpeedReadingPsm.Fan1Name)...)
 		}
 
-        //it could be that the DCOutputValue has the same states as stateValues from above
-        //but I couldn't verify it for sure
+		//it could be that the DCOutputValue has the same states as stateValues from above
+		//but I couldn't verify it for sure
 		dcOutputVal := 0.0
 		if strings.EqualFold(strings.ToLower(item.PsmInformation.PsmStatus.DcOutput), "ok") {
 			dcOutputVal = 1.0
@@ -322,15 +325,8 @@ func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Clien
 }
 
 func (c *environmentCollector) environmentItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := environmentResultEX4300{}
+	x := environmentResultModelEX4300{}
 
-	statusValues := map[string]int{
-		"OK":      1,
-		"Testing": 2,
-		"Failed":  3,
-		"Absent":  4,
-		"Present": 5,
-	}
 
 	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
 		return xml.Unmarshal(b, &x)
@@ -343,7 +339,7 @@ func (c *environmentCollector) environmentItemsEX4300(client collector.Client, c
 	for _, item := range x.EnvironmentInformation.EnvironmentItem {
 		l := append(labelValues, reName)
 
-		if strings.Contains(item.Name, "Power Supply") || strings.Contains(item.Name, "PEM") || strings.Contains(item.Name, "PSM") {
+		if containsAny(item.Name, []string{"Power Supply", "PEM", "PSM"}) {
 			ch <- prometheus.MustNewConstMetric(powerSupplyDesc, prometheus.GaugeValue, float64(statusValues[item.Status]), append(l, item.Name, item.Status)...)
 		} else if strings.Contains(item.Name, "Fan") {
 			if strings.Contains(item.Name, "Airflow") {
@@ -364,7 +360,7 @@ func (c *environmentCollector) environmentItemsEX4300(client collector.Client, c
 }
 
 func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
-	x := environmentPEMResultEX4300{}
+	x := environmentPEMResultModelEX4300{}
 
 	stateValues := map[string]int{
 		"Online":  1,
@@ -397,6 +393,15 @@ func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client
 	}
 
 	return nil
+}
+
+func containsAny(s string, items []string) bool {
+	for _, item := range items {
+		if strings.Contains(s, item) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseXML(b []byte, res *multiEngineResult) error {
