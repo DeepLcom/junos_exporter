@@ -309,6 +309,8 @@ func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Clien
 			ch <- prometheus.MustNewConstMetric(fanDesc, prometheus.GaugeValue, rpms, append(l, item.PsmInformation.FanSpeedReadingPsm.Fan1Name)...)
 		}
 
+        //it could be that the DCOutputValue has the same states as stateValues from above
+        //but I couldn't verify it for sure
 		dcOutputVal := 0.0
 		if strings.EqualFold(strings.ToLower(item.PsmInformation.PsmStatus.DcOutput), "ok") {
 			dcOutputVal = 1.0
