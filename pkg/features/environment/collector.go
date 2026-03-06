@@ -27,8 +27,11 @@ var (
 	dcVoltageDesc    *prometheus.Desc
 	dcCurrentDesc    *prometheus.Desc
 	dcPowerDesc      *prometheus.Desc
-	dcLoadDesc       *prometheus.Desc
-	dcOutputDesc     *prometheus.Desc
+	dcLoadDesc          *prometheus.Desc
+	dcOutputDesc        *prometheus.Desc
+	inputVoltageDesc    *prometheus.Desc
+	inputCurrentDesc    *prometheus.Desc
+	inputPowerDesc      *prometheus.Desc
 )
 
 func init() {
@@ -44,6 +47,9 @@ func init() {
 	dcPowerDesc = prometheus.NewDesc(prefix+"pem_power_usage", "PEM power usage in W", l, nil)
 	dcLoadDesc = prometheus.NewDesc(prefix+"pem_power_load_percent", "PEM power usage percent of total", l, nil)
 	dcOutputDesc = prometheus.NewDesc(prefix+"pem_dc_output", "PSM DC output status (1 OK, 0 not OK)", l, nil)
+	inputVoltageDesc = prometheus.NewDesc(prefix+"pem_input_voltage", "PSU input voltage in V", l, nil)
+	inputCurrentDesc = prometheus.NewDesc(prefix+"pem_input_current", "PSU input current in A", l, nil)
+	inputPowerDesc = prometheus.NewDesc(prefix+"pem_input_power", "PSU input power in W", l, nil)
 
 	l = []string{"target", "re_name", "item", "fan_name"}
 	fanDesc = prometheus.NewDesc(prefix+"pem_fanspeed", "Fan speed in RPM", l, nil)
@@ -68,6 +74,9 @@ func (*environmentCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- fanDesc
 	ch <- dcPowerDesc
 	ch <- dcOutputDesc
+	ch <- inputVoltageDesc
+	ch <- inputCurrentDesc
+	ch <- inputPowerDesc
 }
 
 // Collect collects metrics from JunOS
@@ -75,7 +84,6 @@ func (c *environmentCollector) Collect(client collector.Client, ch chan<- promet
 	var v showVersionResult
 	err := client.RunCommandAndParse("show version", &v)
 	if err != nil {
-		//return errors.Wrap(err, "failed to run command 'show version'")
 		return errors.Wrap(err, "failed to run command 'show version'")
 	}
 	// QFX5220 and EX4300 have a slightly different xml for environment information, so we need to check the product model before collecting environment metrics
@@ -381,6 +389,9 @@ func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client
 		ch <- prometheus.MustNewConstMetric(dcVoltageDesc, prometheus.GaugeValue, pem.OutputVolt, l...)
 		ch <- prometheus.MustNewConstMetric(dcCurrentDesc, prometheus.GaugeValue, pem.OutputCurrent, l...)
 		ch <- prometheus.MustNewConstMetric(dcPowerDesc, prometheus.GaugeValue, pem.OutputPower, l...)
+		ch <- prometheus.MustNewConstMetric(inputVoltageDesc, prometheus.GaugeValue, pem.InputVolt, l...)
+		ch <- prometheus.MustNewConstMetric(inputCurrentDesc, prometheus.GaugeValue, pem.InputCurrent, l...)
+		ch <- prometheus.MustNewConstMetric(inputPowerDesc, prometheus.GaugeValue, pem.InputPower, l...)
 	}
 
 	return nil
