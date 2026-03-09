@@ -24,6 +24,9 @@ var (
 		"Failed":  3,
 		"Absent":  4,
 		"Present": 5,
+		"Online":  1,
+		"Empty":   4,
+		"Offline": 3,
 	}
 
 	temperaturesDesc *prometheus.Desc
@@ -45,11 +48,11 @@ var (
 func init() {
 	l := []string{"target", "re_name", "item"}
 	temperaturesDesc = prometheus.NewDesc(prefix+"item_temp", "Temperature of the air flowing past", l, nil)
-	powerSupplyDesc = prometheus.NewDesc(prefix+"power_up", "Status of power supplies (1 OK, 2 Testing, 3 Failed, 4 Absent, 5 Present)", append(l, "status"), nil)
-	fanStatusDesc = prometheus.NewDesc(prefix+"fan_up", "Status of fans (1 OK, 2 Testing, 3 Failed, 4 Absent, 5 Present)", append(l, "status"), nil)
-	fanAirflowDesc = prometheus.NewDesc(prefix+"fan_airflow_up", "Status of	fan airflows (1 OK, 2 Testing, 3 Failed, 4 Absent, 5 Present)", append(l, "status"), nil)
+	powerSupplyDesc = prometheus.NewDesc(prefix+"power_up", "Status of power supplies (1 OK/Online, 2 Testing, 3 Failed/Offline, 4 Absent/Empty, 5 Present)", append(l, "status"), nil)
+	fanStatusDesc = prometheus.NewDesc(prefix+"fan_up", "Status of fans (1 OK/Online, 2 Testing, 3 Failed/Offline, 4 Absent/Empty, 5 Present)", append(l, "status"), nil)
+	fanAirflowDesc = prometheus.NewDesc(prefix+"fan_airflow_up", "Status of fan airflows (1 OK/Online, 2 Testing, 3 Failed/Offline, 4 Absent/Empty, 5 Present)", append(l, "status"), nil)
 
-	pemDesc = prometheus.NewDesc(prefix+"pem_state", "State of PEM module. 1 - Online, 2 - Present, 3 - Empty", append(l, "state"), nil)
+	pemDesc = prometheus.NewDesc(prefix+"pem_state", "State of PEM module (1 OK/Online, 2 Testing, 3 Failed/Offline, 4 Absent/Empty, 5 Present)", append(l, "state"), nil)
 	dcVoltageDesc = prometheus.NewDesc(prefix+"pem_voltage", "PEM voltage value", l, nil)
 	dcCurrentDesc = prometheus.NewDesc(prefix+"pem_current", "PEM current value", l, nil)
 	dcPowerDesc = prometheus.NewDesc(prefix+"pem_power_usage", "PEM power usage in W", l, nil)
@@ -131,7 +134,6 @@ func (c *environmentCollector) Collect(client collector.Client, ch chan<- promet
 func (c *environmentCollector) environmentItems(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	x := multiEngineResult{}
 
-
 	err := client.RunCommandAndParseWithParser("show chassis environment", func(b []byte) error {
 		return parseXML(b, &x)
 	})
@@ -185,13 +187,6 @@ func (c *environmentCollector) environmentItems(client collector.Client, ch chan
 func (c *environmentCollector) environmentPEMItems(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	var x = multiEngineResult{}
 
-	stateValues := map[string]int{
-		"Online":  1,
-		"Present": 2,
-		"Empty":   3,
-		"Offline": 4,
-	}
-
 	err := client.RunCommandAndParseWithParser("show chassis environment pem", func(b []byte) error {
 		return parseXML(b, &x)
 	})
@@ -208,7 +203,7 @@ func (c *environmentCollector) environmentPEMItems(client collector.Client, ch c
 		for _, e := range re.EnvironmentComponentInformation.EnvironmentComponentItem {
 			l := append(labelValues, re.Name, e.Name)
 
-			ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(stateValues[e.State]), append(l, e.State)...)
+			ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(statusValues[e.State]), append(l, e.State)...)
 
 			for _, f := range e.FanSpeedReading {
 				rpms, err := strconv.ParseFloat(strings.TrimSuffix(f.FanSpeed, " RPM"), 64)
@@ -240,16 +235,8 @@ func (c *environmentCollector) environmentPEMItems(client collector.Client, ch c
 	return nil
 }
 
-
 func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	x := environmentPEMResultModelQFX5220{}
-
-	stateValues := map[string]int{
-		"Online":  1,
-		"Present": 2,
-		"Empty":   3,
-		"Offline": 4,
-	}
 
 	err := client.RunCommandAndParseWithParser("show chassis environment pem", func(b []byte) error {
 		return xml.Unmarshal(b, &x)
@@ -267,7 +254,7 @@ func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Clien
 	for _, item := range x.EnvironmentComponentInformation.EnvironmentComponentItem {
 		l := append(labelValues, reName, item.Name)
 
-		ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(stateValues[item.State]), append(l, item.State)...)
+		ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(statusValues[item.State]), append(l, item.State)...)
 
 		fan1Speed := item.PsmInformation.FanSpeedReadingPsm.Fan1Speed
 		if fan1Speed != "" {
@@ -278,7 +265,7 @@ func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Clien
 			ch <- prometheus.MustNewConstMetric(fanDesc, prometheus.GaugeValue, rpms, append(l, item.PsmInformation.FanSpeedReadingPsm.Fan1Name)...)
 		}
 
-		//it could be that the DCOutputValue has the same states as stateValues from above
+		//it could be that the DCOutputValue has the same states as statusValues from above
 		//but I couldn't verify it for sure
 		dcOutputVal := 0.0
 		if strings.EqualFold(strings.ToLower(item.PsmInformation.PsmStatus.DcOutput), "ok") {
@@ -290,16 +277,8 @@ func (c *environmentCollector) environmentPEMItemsQFX5220(client collector.Clien
 	return nil
 }
 
-
 func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client, ch chan<- prometheus.Metric, labelValues []string) error {
 	x := environmentPEMResultModelEX4300{}
-
-	stateValues := map[string]int{
-		"Online":  1,
-		"Present": 2,
-		"Empty":   3,
-		"Offline": 4,
-	}
 
 	err := client.RunCommandAndParseWithParser("show chassis environment power-supply-unit", func(b []byte) error {
 		return xml.Unmarshal(b, &x)
@@ -314,7 +293,7 @@ func (c *environmentCollector) environmentPEMItemsEX4300(client collector.Client
 		itemName := fmt.Sprintf("FPC %s PSU %s", pem.FpcSlot, pem.PemSlot)
 		l := append(labelValues, reName, itemName)
 
-		ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(stateValues[pem.PemState]), append(l, pem.PemState)...)
+		ch <- prometheus.MustNewConstMetric(pemDesc, prometheus.GaugeValue, float64(statusValues[pem.PemState]), append(l, pem.PemState)...)
 		ch <- prometheus.MustNewConstMetric(temperaturesDesc, prometheus.GaugeValue, pem.PemTemperature, append(labelValues, reName, itemName)...)
 		ch <- prometheus.MustNewConstMetric(dcVoltageDesc, prometheus.GaugeValue, pem.OutputVolt, l...)
 		ch <- prometheus.MustNewConstMetric(dcCurrentDesc, prometheus.GaugeValue, pem.OutputCurrent, l...)
