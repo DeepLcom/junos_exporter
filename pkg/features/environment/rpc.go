@@ -59,3 +59,116 @@ type singleEngineResult struct {
 	EnvironmentComponentInformation environmentComponentInformation `xml:"environment-component-information"`
 	EnvironmentInformation          environmentInformation          `xml:"environment-information"`
 }
+
+type showVersionResult struct {
+	XMLName             xml.Name `xml:"rpc-reply"`
+	Text                string   `xml:",chardata"`
+	Junos               string   `xml:"junos,attr"`
+	SoftwareInformation struct {
+		Text               string `xml:",chardata"`
+		HostName           string `xml:"host-name"`
+		ProductModel       string `xml:"product-model"`
+		ProductName        string `xml:"product-name"`
+		OsName             string `xml:"os-name"`
+		JunosVersion       string `xml:"junos-version"`
+		PackageInformation []struct {
+			Text        string `xml:",chardata"`
+			Name        string `xml:"name"`
+			PackageName string `xml:"package-name"`
+			Comment     string `xml:"comment"`
+		} `xml:"package-information"`
+	} `xml:"software-information"`
+	Cli struct {
+		Text   string `xml:",chardata"`
+		Banner string `xml:"banner"`
+	} `xml:"cli"`
+}
+
+
+type showChassisHardwareResult struct {
+	XMLName          xml.Name `xml:"rpc-reply"`
+	ChassisInventory struct {
+		Chassis struct {
+			Description string `xml:"description"`
+		} `xml:"chassis"`
+	} `xml:"chassis-inventory"`
+}
+
+
+type environmentPEMResultModelEX4300 struct {
+	XMLName xml.Name `xml:"rpc-reply"`
+	Text    string   `xml:",chardata"`
+	Junos   string   `xml:"junos,attr"`
+	EnvironmentComponentInformation struct {
+		Text  string `xml:",chardata"`
+		Xmlns string `xml:"xmlns,attr"`
+		EnvironmentComponentItem []struct {
+			PemInformation struct {
+				FpcSlot       string  `xml:"fpc-slot"`
+				PemSlot       string  `xml:"pem-slot"`
+				PemState      string  `xml:"pem-state"`
+				PemTemperature float64 `xml:"pem-temperature"`
+				InputCurrent  float64 `xml:"input-current"`
+				InputVolt     float64 `xml:"input-volt"`
+				InputPower    float64 `xml:"input-power"`
+				OutputCurrent float64 `xml:"output-current"`
+				OutputVolt    float64 `xml:"output-volt"`
+				OutputPower   float64 `xml:"output-power"`
+			} `xml:"pem-information"`
+		} `xml:"environment-component-item"`
+	} `xml:"environment-component-information"`
+	Cli struct {
+		Text   string `xml:",chardata"`
+		Banner string `xml:"banner"`
+	} `xml:"cli"`
+}
+
+type environmentPEMResultModelQFX5220 struct {
+	XMLName                         xml.Name `xml:"rpc-reply"`
+	Text                            string   `xml:",chardata"`
+	Junos                           string   `xml:"junos,attr"`
+	EnvironmentComponentInformation struct {
+		Text                     string `xml:",chardata"`
+		Xmlns                    string `xml:"xmlns,attr"`
+		EnvironmentComponentItem []struct {
+			Text           string `xml:",chardata"`
+			Name           string `xml:"name"`
+			State          string `xml:"state"`
+			PsmInformation struct {
+				Text               string `xml:",chardata"`
+				TemperatureReading struct {
+					Text            string `xml:",chardata"`
+					TemperatureName string `xml:"temperature-name"`
+					Temperature     struct {
+						Text    string `xml:",chardata"`
+						Celsius string `xml:"celsius,attr"`
+					} `xml:"temperature"`
+				} `xml:"temperature-reading"`
+				PsmStatus struct {
+					Text     string `xml:",chardata"`
+					Fans     string `xml:"fans"`
+					DcOutput string `xml:"dc-output"`
+				} `xml:"psm-status"`
+				FirmwareVersion    string `xml:"firmware-version"`
+				FanSpeedReadingPsm struct {
+					Text      string `xml:",chardata"`
+					Fan1Name  string `xml:"fan1-name"`
+					Fan1Speed string `xml:"fan1-speed"`
+					Fan2Name  string `xml:"fan2-name"`
+				} `xml:"fan-speed-reading-psm"`
+			} `xml:"psm-information"`
+			PsmHealthCheckDetail struct {
+				Text                       string `xml:",chardata"`
+				HealthCheckStatus          string `xml:"health-check-status"`
+				HealthCheckStateStr        string `xml:"health-check-state-str"`
+				HealthCheckLastResultStr   string `xml:"health-check-last-result-str"`
+				HealthCheckLastExecStr     string `xml:"health-check-last-exec-str"`
+				HealthCheckNextSchedRunStr string `xml:"health-check-next-sched-run-str"`
+			} `xml:"psm-health-check-detail"`
+		} `xml:"environment-component-item"`
+	} `xml:"environment-component-information"`
+	Cli struct {
+		Text   string `xml:",chardata"`
+		Banner string `xml:"banner"`
+	} `xml:"cli"`
+}
